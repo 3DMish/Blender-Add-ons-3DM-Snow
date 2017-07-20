@@ -2,7 +2,7 @@
 Create snow on selected objects.
 
 # Download
-<table><tr><td>v0.1.5</td><td><a href='https://github.com/3DMish/Blender-Add-ons-3DM-Snow/archive/master.zip'>3dm_snow.py</a></td></tr>
+<table><tr><td>v0.1.0</td><td><a href='https://github.com/3DMish/Blender-Add-ons-3DM-Snow/archive/master.zip'>3dm_snow.py</a></td></tr>
 </table>
 
 # Install
