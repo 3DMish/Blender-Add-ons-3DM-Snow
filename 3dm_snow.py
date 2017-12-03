@@ -20,7 +20,7 @@ bl_info = {
 	"name": "3DM Snow",
 	"category": "3DMish",
 	"author": "3DMish (Mish7913@gmail.com)",
-	"version": (0, 1, 0),
+	"version": (0, 1, 1),
 	"blender": (2, 78, 5),
 	"wiki_url": "",
 	"tracker_url": "",
@@ -33,8 +33,8 @@ from bpy.props import *
 
 def initSceneProperties():
 	bpy.types.Scene.SnowQuantity = IntProperty(name = "Quantity", description = "Enter a Quantity", default = 1, min = 0, max = 100)
-	bpy.types.Scene.SnowThickness = FloatProperty(name = "Thickness", description = "Enter a Thickness", default = 50, min = 0, max = 100)
-	bpy.types.Scene.SnowSensitivity = FloatProperty(name = "Sensitivity", description = "Enter a Sensitivity", default = 0, min = -1.0, max = 1.0)
+	bpy.types.Scene.SnowThickness = FloatProperty(name = "Thickness", description = "Enter a Thickness", default = 50, min = 1, max = 100)
+	bpy.types.Scene.SnowSensitivity = FloatProperty(name = "Sensitivity", description = "Enter a Sensitivity", default = 0, min = 0, max = 1.0)
 	return
 initSceneProperties()
 
@@ -102,7 +102,7 @@ class MishCreateSnow(bpy.types.Operator):
 				m3dball = bpy.data.metaballs.new("3dmSnowball")
 				m3dballobj = bpy.data.objects.new("3dmSnowballObject", m3dball)
 				bpy.context.scene.objects.link(m3dballobj)
-				m3dball.resolution = (bpy.context.scene.SnowThickness / 30); m3dball.render_resolution = 0.2; m3dball.threshold = 1.3
+				m3dball.resolution = (bpy.context.scene.SnowThickness / 30)+0.01; m3dball.render_resolution = 0.2; m3dball.threshold = 1.3
 				element = m3dball.elements.new()
 				element.co = [0.0, 0.0, 0.0]; element.radius = 1.5; element.stiffness = 0.75
 				m3dballobj.scale = [0.09, 0.09, 0.09];
@@ -111,9 +111,9 @@ class MishCreateSnow(bpy.types.Operator):
 				m3dPsys = obj.particle_systems[-1]; m3dPsys.name = '3DM.Snow'
 				
 				m3dPset = m3dPsys.settings; m3dPset.type = 'HAIR'; m3dPset.name = '3DM.SnowSystem'
-				m3dPset.hair_length = ( (obj.dimensions[0] + obj.dimensions[1] + obj.dimensions[2])-(bpy.context.scene.SnowThickness / 100) )
+				m3dPset.hair_length = ( (obj.dimensions[0] + obj.dimensions[1] + obj.dimensions[2])-(bpy.context.scene.SnowThickness / 100)+0.01 )
 				m3dPset.use_render_emitter = True; m3dPset.render_type = 'OBJECT'; m3dPset.dupli_object = m3dballobj
-				m3dPset.particle_size = (bpy.context.scene.SnowThickness / 100)
+				m3dPset.particle_size = (bpy.context.scene.SnowThickness / 100)+0.01
 				m3dPset.child_type = 'INTERPOLATED'
 				m3dPset.child_nbr = bpy.context.scene.SnowQuantity
 
