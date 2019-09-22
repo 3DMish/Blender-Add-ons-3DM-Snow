@@ -16,20 +16,26 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+# Addon Info
 bl_info = {
 	"name": "3DM Snow",
-	"category": "3DMish",
+	"description": "Generate snow on mesh",
 	"author": "3DMish (Mish7913@gmail.com)",
-	"version": (0, 1, 1),
-	"blender": (2, 78, 5),
-	"wiki_url": "",
-	"tracker_url": "",
-	"description": "Generate snow on mesh.",
+	"version": (1, 0),
+	"blender": (2, 80, 0),
+	"location": "View 3D > Properties Panel",
+	"support": "COMMUNITY",
+	"category": "3DMish"
 	}
 
-import bpy, math, bmesh, time
-from mathutils import Vector
+
+#Libraries
+import bpy
+import math
+import bmesh
 from bpy.props import *
+from bpy.types import Panel, Operator, PropertyGroup
+from mathutils import Vector
 
 def initSceneProperties():
 	bpy.types.Scene.SnowQuantity = IntProperty(name = "Quantity", description = "Enter a Quantity", default = 1, min = 0, max = 100)
@@ -38,56 +44,67 @@ def initSceneProperties():
 	return
 initSceneProperties()
 
-class MishSnowPanel(bpy.types.Panel):   
-	bl_category 	= "3DMish"
-	bl_label		= "3DM Snow"
-	bl_space_type   = "VIEW_3D"
-	bl_region_type  = "TOOLS"
-	
+
+# Panel
+class SNOW_PT_3dm(Panel):
+	bl_space_type = "VIEW_3D"
+	bl_context = "objectmode"
+	bl_region_type = "UI"
+	bl_label = "3DM Snow"
+	bl_category = "3DMish"
+
 	def draw(self, context):
+		scn = context.scene
+		layout = self.layout
+
 		Mcol = self.layout.column(align=True)
-		
-		Mcol.prop(context.scene, 'SnowQuantity')
-		Mcol.prop(context.scene, 'SnowThickness')
-		Mcol.prop(context.scene, 'SnowSensitivity')
+		Mcol.prop(scn, 'SnowQuantity')
+		Mcol.prop(scn, 'SnowThickness')
+		Mcol.prop(scn, 'SnowSensitivity')
 		Gcol = Mcol.row(align=True)
-		Gcol.operator("3dmish.createsnow", text="Create snow", icon="FREEZE")
-		Gcol.operator("3dmish.addsnowmaterial", text="", icon="MATERIAL_DATA")
-		
-class MishAddSnowMaterial(bpy.types.Operator):
-	bl_idname   	= '3dmish.addsnowmaterial'
-	bl_label		= 'Add Snow'
-	bl_description  = 'Add Snow Material On Selected Object'
+		Gcol.operator("snow.create", text="Create snow", icon="FREEZE")
+		Gcol.operator("snow.material", text="", icon="MATERIAL_DATA")
+
+
+class SNOWMATERIAL_OT_Add(Operator):
+	bl_idname = "snow.material"
+	bl_label = "Add Material"
+	bl_description = "Add snow material"
+	bl_options = {'REGISTER', 'UNDO'}
 
 	def execute(self, context):
 		if (bpy.context.selected_objects):
-			if (bpy.context.scene.render.engine == 'CYCLES'):
-				for obj in bpy.context.selected_objects:
-					obj.data.materials.clear()
-					obj.data.materials.append(MishSnowMaterialCycles())
-			elif (bpy.context.scene.render.engine == 'BLENDER_RENDER'):
-				for obj in bpy.context.selected_objects:
-					obj.data.materials.clear()
-					obj.data.materials.append(MishSnowMaterialBlenderRender())
+			for obj in bpy.context.selected_objects:
+				obj.data.materials.clear()
+				obj.data.materials.append(MishSnowMaterialCycles())
 		return {'FINISHED'}
 
-class MishCreateSnow(bpy.types.Operator):
-	bl_idname   	= '3dmish.createsnow'
-	bl_label		= 'Create snow'
-	bl_description  = 'Create snow on mesh'
+
+class SNOW_OT_Create(Operator):
+	bl_idname = "snow.create"
+	bl_label = "Create Snow"
+	bl_description = "Create snow"
+	bl_options = {'REGISTER', 'UNDO'}
 
 	def execute(self, context):
-		if (bpy.context.selected_objects):
-			sobj = bpy.context.active_object;
-			if (bpy.context.active_object == bpy.context.selected_objects[len(bpy.context.selected_objects)-1]):
-				bpy.ops.object.duplicate(); bpy.ops.object.convert(target='MESH'); bpy.ops.object.join();
-				robj = bpy.context.active_object; bpy.ops.object.duplicate(); bobj = bpy.context.active_object;
-				bpy.ops.object.select_all(action='DESELECT'); robj.select = True; bpy.ops.object.mode_set(mode = 'EDIT');
-				obj = bpy.context.active_object;
-
-				bm = bmesh_copy_from_object(obj, transform=True, triangulate=False); bm.normal_update()
-				fo = [ele.index for ele in bm.faces if Vector((0, 0, -1.0)).angle(ele.normal, 4.0) < ((math.pi / 2.0) - (bpy.context.scene.SnowSensitivity - 0.5))]
-				bpy.ops.mesh.select_all(action='DESELECT'); obj_e = bpy.context.edit_object
+		if (context.selected_objects):
+			sobj = bpy.context.active_object
+			if (context.active_object == context.selected_objects[len(context.selected_objects)-1]):
+				bpy.ops.object.duplicate()
+				bpy.ops.object.convert(target='MESH')
+				bpy.ops.object.join()
+				robj = context.active_object
+				bpy.ops.object.duplicate()
+				bobj = context.active_object
+				bpy.ops.object.select_all(action='DESELECT')
+				robj.select_set(True)
+				bpy.ops.object.mode_set(mode = 'EDIT')
+				obj = context.active_object
+				bm = bmesh_copy_from_object(obj, transform=True, triangulate=False)
+				bm.normal_update()
+				fo = [ele.index for ele in bm.faces if Vector((0, 0, -1.0)).angle(ele.normal, 4.0) < ((math.pi / 2.0) - (context.scene.SnowSensitivity - 0.5))]
+				bpy.ops.mesh.select_all(action='DESELECT')
+				obj_e = bpy.context.edit_object
 				
 				for i in fo:
 					mesh = bmesh.from_edit_mesh(obj_e.data)
@@ -97,76 +114,88 @@ class MishCreateSnow(bpy.types.Operator):
 					bmesh.update_edit_mesh(obj_e.data, True)
 				
 				bme = bmesh.from_edit_mesh(obj_e.data); faces_select = [f for f in bme.faces if f.select] 
-				bmesh.ops.delete(bme, geom=faces_select, context=5); bmesh.update_edit_mesh(obj_e.data, True)
+				bmesh.ops.delete(bme, geom=faces_select, context='FACES_KEEP_BOUNDARY')
+				bmesh.update_edit_mesh(obj_e.data, True)
 				bpy.ops.object.mode_set(mode = 'OBJECT')
 				m3dball = bpy.data.metaballs.new("3dmSnowball")
 				m3dballobj = bpy.data.objects.new("3dmSnowballObject", m3dball)
-				bpy.context.scene.objects.link(m3dballobj)
-				m3dball.resolution = (bpy.context.scene.SnowThickness / 30)+0.01; m3dball.render_resolution = 0.2; m3dball.threshold = 1.3
+				bpy.context.scene.collection.objects.link(m3dballobj)
+				m3dball.resolution = (bpy.context.scene.SnowThickness / 30)+0.01
+				m3dball.render_resolution = 0.2
+				m3dball.threshold = 1.3
 				element = m3dball.elements.new()
-				element.co = [0.0, 0.0, 0.0]; element.radius = 1.5; element.stiffness = 0.75
-				m3dballobj.scale = [0.09, 0.09, 0.09];
-				
-				bpy.context.scene.objects.active = obj; bpy.ops.object.particle_system_add()
-				m3dPsys = obj.particle_systems[-1]; m3dPsys.name = '3DM.Snow'
-				
-				m3dPset = m3dPsys.settings; m3dPset.type = 'HAIR'; m3dPset.name = '3DM.SnowSystem'
+				element.co = [0.0, 0.0, 0.0]; element.radius = 1.5
+				element.stiffness = 0.75
+				m3dballobj.scale = [0.09, 0.09, 0.09]
+				context.view_layer.objects.active = obj
+				bpy.ops.object.particle_system_add()
+				m3dPsys = obj.particle_systems[-1]
+				m3dPsys.name = '3DM.Snow'
+				m3dPset = m3dPsys.settings
+				m3dPset.type = 'HAIR'
+				m3dPset.name = '3DM.SnowSystem'
 				m3dPset.hair_length = ( (obj.dimensions[0] + obj.dimensions[1] + obj.dimensions[2])-(bpy.context.scene.SnowThickness / 100)+0.01 )
-				m3dPset.use_render_emitter = True; m3dPset.render_type = 'OBJECT'; m3dPset.dupli_object = m3dballobj
+				m3dPset.render_type = 'OBJECT'
+				m3dPset.instance_object = m3dballobj
 				m3dPset.particle_size = (bpy.context.scene.SnowThickness / 100)+0.01
 				m3dPset.child_type = 'INTERPOLATED'
 				m3dPset.child_nbr = bpy.context.scene.SnowQuantity
-
-				
-				bpy.ops.object.select_all(action='DESELECT');
-				m3dSnowMesh = m3dballobj.to_mesh(bpy.context.scene, False, 'PREVIEW')
-				m3dSnowObj = bpy.data.objects.new("3dmSnow", m3dSnowMesh)
-				bpy.context.scene.objects.link(m3dSnowObj); m3dSnowObj.scale = [0.09, 0.09, 0.09];
-				m3dSnowObj.select = True;
-				bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY'); bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-				
-				bpy.ops.object.select_all(action='DESELECT');
-				obj.select = True; bpy.ops.object.particle_system_remove(); obj.select = True; bpy.ops.object.delete();
-				bpy.ops.object.select_all(action='DESELECT');
-				m3dballobj.select = True; bpy.ops.object.delete();
-				
-				bpy.ops.object.select_all(action='DESELECT'); sobj.select = True;
-				
-				bpy.ops.object.select_all(action='DESELECT'); bobj.select = True; bpy.ops.object.delete();
-				bpy.ops.object.select_all(action='DESELECT'); robj.select = True; bpy.ops.object.delete();
-				bpy.ops.object.select_all(action='DESELECT'); m3dSnowObj.select = True;
-				
-				m3dSnowObj.modifiers.new("3DM Decimate", 'DECIMATE');
+				bpy.ops.object.select_all(action='DESELECT')
+				context.view_layer.objects.active = m3dballobj
+				m3dballobj.select_set(True)
+				bpy.ops.object.convert(target='MESH')
+				m3dSnowObj = bpy.context.active_object
+				m3dSnowObj.scale = [0.09, 0.09, 0.09]
+				m3dSnowObj.select_set(True)
+				bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY')
+				bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+				bpy.ops.object.select_all(action='DESELECT')
+				obj.select_set(True)
+				bpy.ops.object.particle_system_remove()
+				obj.select_set(True)
+				bpy.ops.object.delete()
+				bpy.ops.object.select_all(action='DESELECT')
+				sobj.select_set(True)
+				bpy.ops.object.select_all(action='DESELECT')
+				robj.select_set(True)
+				bpy.ops.object.delete()
+				bpy.ops.object.select_all(action='DESELECT')
+				m3dSnowObj.select_set(True)
+				m3dSnowObj.modifiers.new("3DM Decimate", 'DECIMATE')
 				m3dSnowObj.modifiers["3DM Decimate"].ratio = 0.5
 				m3dSnowObj.modifiers["3DM Decimate"].show_expanded = False
-				m3dSnowObj.modifiers.new("3DM Subsurf", 'SUBSURF');
+				m3dSnowObj.modifiers.new("3DM Subsurf", 'SUBSURF')
 				m3dSnowObj.modifiers["3DM Subsurf"].show_viewport = False
 				m3dSnowObj.modifiers["3DM Subsurf"].show_expanded = False
 
 		return {'FINISHED'}
 
 def MishSnowMaterialBlenderRender():
-	m3dSnow = bpy.data.materials.new("3dmSnow"); m3dSnow.diffuse_color  = (1, 1, 1);  m3dSnow.diffuse_shader  = 'LAMBERT';
-	m3dSnow.diffuse_intensity  = 1.0; m3dSnow.specular_color = (1, 1, 1); m3dSnow.specular_shader = 'COOKTORR';
-	m3dSnow.specular_intensity = 0; m3dSnow.specular_hardness = 5; m3dSnow.alpha = 1; m3dSnow.use_shadeless = 0; m3dSnow.ambient = 1;
-	
-	m3dSnowTextureClouds = bpy.data.textures.new('3dmSnowTextureClouds', type = 'CLOUDS');
+	m3dSnow = bpy.data.materials.new("3dmSnow")
+	m3dSnow.diffuse_color  = (1, 1, 1)
+	m3dSnow.diffuse_shader  = 'LAMBERT'
+	m3dSnow.diffuse_intensity  = 1.0
+	m3dSnow.specular_color = (1, 1, 1)
+	m3dSnow.specular_shader = 'COOKTORR'
+	m3dSnow.specular_intensity = 0
+	m3dSnow.specular_hardness = 5
+	m3dSnow.alpha = 1
+	m3dSnow.use_shadeless = 0
+	m3dSnow.ambient = 1
+	m3dSnowTextureClouds = bpy.data.textures.new('3dmSnowTextureClouds', type = 'CLOUDS')
 	m3dSnowTextureClouds.noise_scale = 0.0001
 	m3dSnowTextureClouds.noise_depth = 6
 	m3dSnowTextureClouds.contrast = 5
 	m3dSnowTextureClouds.intensity = 0
-	m3dSnow.texture_slots.add().texture = m3dSnowTextureClouds;
-
+	m3dSnow.texture_slots.add().texture = m3dSnowTextureClouds
 	m3dSnow.texture_slots[0].texture_coords = 'OBJECT'
 	m3dSnow.texture_slots[0].use_map_color_diffuse = False
 	m3dSnow.texture_slots[0].use_map_specular = True
 	m3dSnow.texture_slots[0].specular_factor = 1
-
-	m3dSnowTextureClouds2 = bpy.data.textures.new('3dmSnowTextureClouds2', type = 'CLOUDS');
+	m3dSnowTextureClouds2 = bpy.data.textures.new('3dmSnowTextureClouds2', type = 'CLOUDS')
 	m3dSnowTextureClouds2.noise_scale = 0.1
 	m3dSnowTextureClouds2.noise_depth = 3
-	m3dSnow.texture_slots.add().texture = m3dSnowTextureClouds2;
-
+	m3dSnow.texture_slots.add().texture = m3dSnowTextureClouds2
 	m3dSnow.texture_slots[1].texture_coords = 'OBJECT'
 	m3dSnow.texture_slots[1].use_map_color_diffuse = False
 	m3dSnow.texture_slots[1].normal_factor = 0.05
@@ -175,12 +204,11 @@ def MishSnowMaterialBlenderRender():
 	return m3dSnow
 
 def MishSnowMaterialCycles():
-	m3dSnow = bpy.data.materials.new("3dmSnow"); m3dSnow.use_nodes = True;
+	m3dSnow = bpy.data.materials.new("3dmSnow")
+	m3dSnow.use_nodes = True
 	m3dSnowNodes = m3dSnow.node_tree.nodes
 	m3dSnowLinks = m3dSnow.node_tree.links
-
 	while(m3dSnowNodes): m3dSnowNodes.remove(m3dSnowNodes[0])
-	
 	m3dSnowOut  = m3dSnowNodes.new("ShaderNodeOutputMaterial")
 	m3dSnowOut.location = 680, 100
 	m3dSnowGlossy = m3dSnowNodes.new("ShaderNodeBsdfGlossy")
@@ -296,32 +324,55 @@ def MishSnowMaterialCycles():
 	
 	return m3dSnow
 
+
 def bmesh_copy_from_object(obj, transform=True, triangulate=True, apply_modifiers=False):
 	assert(obj.type == 'MESH')
 
 	if apply_modifiers and obj.modifiers:
 		import bpy
 		me = obj.to_mesh(bpy.context.scene, True, 'PREVIEW', calc_tessface=False)
-		bm = bmesh.new(); bm.from_mesh(me); bpy.data.meshes.remove(me)
+		bm = bmesh.new(); bm.from_mesh(me)
+		bpy.data.meshes.remove(me)
 		del bpy
 	else:
 		me = obj.data
-		if obj.mode == 'EDIT': bm_orig = bmesh.from_edit_mesh(me); bm = bm_orig.copy()
-		else: bm = bmesh.new(); bm.from_mesh(me)
+		if obj.mode == 'EDIT':
+			bm_orig = bmesh.from_edit_mesh(me)
+			bm = bm_orig.copy()
+		else:
+			bm = bmesh.new()
+			bm.from_mesh(me)
 
-	if transform: bm.transform(obj.matrix_world)
-	if triangulate: bmesh.ops.triangulate(bm, faces=bm.faces)
+	if transform:
+		bm.transform(obj.matrix_world)
+	if triangulate:
+		bmesh.ops.triangulate(bm, faces=bm.faces)
 	return bm
-	
-def register():
-	bpy.utils.register_class(MishCreateSnow)
-	bpy.utils.register_class(MishSnowPanel)
-	bpy.utils.register_class(MishAddSnowMaterial)
 
+
+#############################################################################################
+classes = (
+	SNOW_PT_3dm,
+	SNOWMATERIAL_OT_Add,
+	SNOW_OT_Create
+	)
+
+register, unregister = bpy.utils.register_classes_factory(classes)
+
+
+# Register
+def register():
+	for cls in classes:
+		bpy.utils.register_class(cls)
+	#bpy.types.Scene.trees = bpy.props.PointerProperty(type=TreeSettings)
+
+
+# Unregister
 def unregister():
-	bpy.utils.unregister_class(MishCreateSnow)
-	bpy.utils.unregister_class(MishSnowPanel)
-	bpy.utils.unregister_class(MishAddSnowMaterial)
+	for cls in classes:
+		bpy.utils.unregister_class(cls)
+	#del bpy.types.Scene.trees
+
 
 if __name__ == "__main__":
 	register()
